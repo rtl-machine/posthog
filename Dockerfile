@@ -1,3 +1,5 @@
+ARG RAILWAY_SERVICE_ID="service_id"
+
 #
 # This Dockerfile is used for self-hosted production builds.
 #
@@ -25,6 +27,8 @@ FROM node:18.19.1-bookworm-slim AS frontend-build
 WORKDIR /code
 SHELL ["/bin/bash", "-e", "-o", "pipefail", "-c"]
 
+ARG RAILWAY_SERVICE_ID
+
 COPY turbo.json package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
 COPY frontend/package.json frontend/
 COPY frontend/bin/ frontend/bin/
@@ -36,7 +40,7 @@ COPY common/eslint_rules/ common/eslint_rules/
 COPY common/tailwind/ common/tailwind/
 COPY products/ products/
 COPY ee/frontend/ ee/frontend/
-RUN --mount=type=cache,id=pnpm,target=/tmp/pnpm-store \
+RUN --mount=type=cache,id=s/$RAILWAY_SERVICE_ID-/tmp/pnpm-store,target=/tmp/pnpm-store \
     corepack enable && pnpm --version && \
     pnpm --filter=@posthog/frontend... install --frozen-lockfile --store-dir /tmp/pnpm-store
 
@@ -76,7 +80,7 @@ SHELL ["/bin/bash", "-e", "-o", "pipefail", "-c"]
 
 # Compile and install Node.js dependencies.
 # NOTE: we don't actually use the plugin-transpiler with the plugin-server, it's just here for the build.
-RUN --mount=type=cache,id=pnpm,target=/tmp/pnpm-store \
+RUN --mount=type=cache,id=s/$RAILWAY_SERVICE_ID-/tmp/pnpm-store,target=/tmp/pnpm-store \
     corepack enable && \
     NODE_OPTIONS="--max-old-space-size=16384" pnpm --filter=@posthog/plugin-server... install --frozen-lockfile --store-dir /tmp/pnpm-store && \
     NODE_OPTIONS="--max-old-space-size=16384" pnpm --filter=@posthog/plugin-transpiler... install --frozen-lockfile --store-dir /tmp/pnpm-store && \
@@ -97,7 +101,7 @@ RUN NODE_OPTIONS="--max-old-space-size=16384" bin/turbo --filter=@posthog/plugin
 
 # only prod dependencies in the node_module folder
 # as we will copy it to the last image.
-RUN --mount=type=cache,id=pnpm,target=/tmp/pnpm-store \
+RUN --mount=type=cache,id=s/$RAILWAY_SERVICE_ID-/tmp/pnpm-store,target=/tmp/pnpm-store \
     corepack enable && \
     NODE_OPTIONS="--max-old-space-size=16384" pnpm --filter=@posthog/plugin-server install --frozen-lockfile --store-dir /tmp/pnpm-store --prod && \
     NODE_OPTIONS="--max-old-space-size=16384" bin/turbo --filter=@posthog/plugin-server prepare
